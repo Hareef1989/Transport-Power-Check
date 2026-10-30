@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Transport Power Check</title>
+<style>
+:root{--bg:#f5f7fa;--card:#fff;--tx:#1b2430;--mut:#6b7686;--bd:#dde3ea;--ac:#2563eb;--ok:#15803d;--okb:#dcfce7;--wn:#b45309;--wnb:#fef3c7;--cr:#b91c1c;--crb:#fee2e2;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10151c;--card:#19212b;--tx:#e6ebf2;--mut:#93a0b2;--bd:#2a3542;--ac:#60a5fa;--ok:#4ade80;--okb:#12301d;--wn:#fbbf24;--wnb:#3a2c0b;--cr:#f87171;--crb:#3b1515;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10151c;--card:#19212b;--tx:#e6ebf2;--mut:#93a0b2;--bd:#2a3542;--ac:#60a5fa;--ok:#4ade80;--okb:#12301d;--wn:#fbbf24;--wnb:#3a2c0b;--cr:#f87171;--crb:#3b1515;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 "Sarabun","Noto Sans Thai",system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:4px 0 14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
+label{font-size:13px;color:var(--mut);display:block;margin-bottom:4px}
+textarea,input{width:100%;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:9px;font:inherit}
+textarea{min-height:130px;font:12.5px/1.4 ui-monospace,Menlo,monospace}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.row>div{flex:1;min-width:140px}
+button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:9px 16px;font:inherit;font-weight:600;cursor:pointer}
+button.g{background:transparent;color:var(--ac);border:1px solid var(--bd)}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:640px;font-size:14px}
+th,td{padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}th{color:var(--mut);font-weight:600;font-size:12.5px}
+.chip{display:inline-block;padding:1px 9px;border-radius:99px;font-size:12.5px;font-weight:600}
+.ok{background:var(--okb);color:var(--ok)}.wn{background:var(--wnb);color:var(--wn)}.cr{background:var(--crb);color:var(--cr)}
+.sum{padding:10px 12px;border-radius:8px;font-weight:600;margin-bottom:10px}
+.hint{font-size:12.5px;color:var(--mut);margin-top:6px}
+</style>
+</head>
+<body>
+<main>
+<h1>ตรวจสอบค่า Power Transport + สร้างข้อความอัตโนมัติ</h1>
+
+<div class="card">
+  <label for="raw">วางข้อมูลจากหน้า Check Power (copy ทั้ง 2 แถว)</label>
+  <textarea id="raw" placeholder="วางข้อความที่นี่..."></textarea>
+  <label for="prev" style="margin-top:10px">ค่า Power เดิม / ก่อนหน้า (วางข้อความจากระบบ รองรับหลายบรรทัด)</label>
+  <textarea id="prev" style="min-height:70px" placeholder="วางข้อความค่าเดิมที่นี่..."></textarea>
+  <div class="hint">ใช้ค่า Ref. Rx เป็นค่าเดิม ถ้าวางเฉพาะช่องนี้ ระบบจะวิเคราะห์จากข้อความนั้นโดยตรง</div>
+  <div class="row" style="margin-top:10px">
+    <div><label for="job">เลข Job</label><input id="job" placeholder="JB26-xxxxxxx"></div>
+    <div><label for="warn">เตือนเมื่อ Loss สองทิศต่างกันเกิน (dB)</label><input id="warn" type="number" step="0.1" value="3"></div>
+    <div><label for="mg">เตือนเมื่อ Rx เหลือ margin ต่ำกว่า (dB)</label><input id="mg" type="number" step="0.1" value="3"></div>
+    <div><label for="dw">Rx ต่างจากค่าเดิมเกิน (dB) → เฝ้าระวัง</label><input id="dw" type="number" step="0.1" value="1"></div><div><label for="dc">เกิน (dB) → ผิดปกติ</label><input id="dc" type="number" step="0.1" value="3"></div><button id="go">ตรวจสอบ</button>
+    
+  </div>
+</div>
+
+<div id="out" style="display:none">
+  <div class="card">
+    <div id="sum" class="sum"></div>
+    <div class="tw"><table>
+      <thead id="th"><tr><th>ทิศทาง</th><th>Tx (dBm)</th><th>ช่วง Tx</th><th>Tx</th><th>Rx (dBm)</th><th>ช่วง Rx</th><th>Rx</th><th>Margin</th><th>Loss (dB)</th><th>Rx เดิม (Δ)</th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table></div>
+    <div id="notes" class="hint"></div>
+  </div>
+  <div class="card">
+    <label for="msg">ข้อความสำหรับส่ง / ปิดงาน (แก้ไขได้)</label>
+    <textarea id="msg" style="min-height:220px;font-family:inherit;font-size:14px"></textarea>
+    <div class="row" style="margin-top:10px"><button id="cp">คัดลอกข้อความ</button><span id="cps" class="hint"></span></div>
+  </div>
+</div>
+</main>
+
+<script>
+const NUM=/^-?\d+(\.\d+)?$/;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=(id,d)=>{const v=parseFloat(document.getElementById(id).value);return isFinite(v)&&v>=0?v:d};
+const isName=t=>/[A-Za-z]/.test(t)&&(t.length>=10||/_/.test(t));
+const ne=n=>n.split("-")[0];
+const f=n=>n.toFixed(2);
+
+function parse(text){
+  const t=text.split(/[\t\r\n]+/).map(s=>s.trim()).filter(Boolean);
+  const rows=[];let i=0;
+  while(i<t.length){
+    if(!isName(t[i])){i++;continue}
+    const src=t[i],out=+t[i+1],st=t[i+3],lo=+t[i+4],hi=+t[i+5];
+    let j=i+6;while(j<t.length&&!isName(t[j]))j++;
+    if(j>=t.length)break;
+    const sink=t[j],inn=+t[j+1],st2=t[j+3],lo2=+t[j+4],hi2=+t[j+5];
+    let k=j+6,sheet=null;
+    while(k<t.length&&!isName(t[k])){if(sheet===null&&NUM.test(t[k]))sheet=+t[k];k++}
+    rows.push({src,sink,out,st,lo,hi,inn,st2,lo2,hi2,sheet});
+    i=k;
+  }
+  return rows;
+}
+
+const chip=(c,x)=>`<span class="chip ${c}">${x}</span>`;
+
+const HEAD0=document.getElementById('th').innerHTML;
+const cls=d=>{const a=Math.abs(d);let w=num('dw',1),c=num('dc',3);if(w>c)[w,c]=[c,w];return a>c?'cr':a>w?'wn':'ok'};
+const dtxt=d=>d>0.005?`ดีขึ้น ${f(d)} dB`:d<-0.005?`ลดลง ${f(-d)} dB`:'ไม่เปลี่ยน';
+const nv=(re,s)=>{const m=s.match(re);return m?+m[1]:null};
+const REF=/Ref\.?\s*Rx\s*=\s*(-?\d+(?:\.\d+)?)/i;
+function parsePrev(text){
+  const out=[];
+  text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).forEach(line=>{
+    const sd=line.split('<<>>').map(s=>{
+      const h=s.match(/^\s*(\S+)\s+([^\s(|]+)/);
+      if(!h)return null;
+      const rg=s.match(/Range\s*(-?\d+(?:\.\d+)?)\s*To\s*(-?\d+(?:\.\d+)?)/i);
+      const fl=s.match(/\(\s*(Rx[^)]*)\)/i);
+      return {ne:h[1],port:h[2],tx:nv(/Tx\s*=\s*(-?\d+(?:\.\d+)?)/i,s),rx:nv(/Rx\s*=\s*(-?\d+(?:\.\d+)?)/i,s.replace(REF,'')),ref:nv(REF,s),lo:rg?Math.min(+rg[1],+rg[2]):null,hi:rg?Math.max(+rg[1],+rg[2]):null,flag:fl?fl[1].trim():''};
+    }).filter(Boolean);
+    if(sd.length===2){sd[0].peer=sd[1];sd[1].peer=sd[0]}
+    out.push(...sd);
+  });
+  return out;
+}
+function runPrevOnly(ps){
+  const job=document.getElementById('job').value.trim(),mgMin=num('mg',3);
+  let level=0;const issues=[];
+  const T=ps.filter(e=>e.rx!=null).map(e=>{
+    const p=e.peer,inR=e.lo==null||(e.rx>=e.lo&&e.rx<=e.hi),d=e.ref!=null?e.rx-e.ref:null,pt=p&&p.tx!=null?p.tx:null;
+    const loss=pt!==null?pt-e.rx:null,lossRef=pt!==null&&e.ref!=null?pt-e.ref:null,mg=e.lo!=null?e.rx-e.lo:null;
+    if([e.rx,e.ref,e.tx].some(v=>v!=null&&(v<-60||v>25))){level=Math.max(level,1);issues.push('ข้อมูลอาจอ่านผิด (ค่าอยู่นอกช่วงที่เป็นไปได้)')}
+    if(!inR){level=2;issues.push(`Rx ที่ ${e.ne} นอกช่วง (${f(e.rx)} dBm)`)}
+    else if(mg!==null&&mg<mgMin){level=Math.max(level,1);issues.push(`Rx ที่ ${e.ne} margin เหลือ ${f(mg)} dB`)}
+    if(d!==null){const c=cls(d);if(c!=='ok'){level=Math.max(level,c==='cr'?2:1);issues.push(`Rx ที่ ${e.ne} ${dtxt(d)} จากค่าเดิม (${f(e.ref)} → ${f(e.rx)})`)}}
+    return {e,p,pt,inR,d,loss,lossRef};
+  });
+  if(!T.length){alert('อ่านค่า Rx จากข้อความค่าเดิมไม่ได้');return}
+  const lv=[['ok','ปกติ'],['wn','เฝ้าระวัง'],['cr','ผิดปกติ']][level];
+  const s=document.getElementById('sum');s.className='sum '+lv[0];
+  s.textContent=`ผลตรวจ: ${lv[1]}`+(issues.length?' — '+issues.join(', '):' — Rx อยู่ในช่วงและไม่เปลี่ยนจากค่าเดิมเกินเกณฑ์');
+  document.getElementById('th').innerHTML='<tr><th>ทิศทาง</th><th>Tx ต้นทาง</th><th>Rx ปัจจุบัน</th><th>ช่วง Rx</th><th>สถานะ</th><th>Rx เดิม</th><th>Δ</th><th>Loss</th><th>Loss เดิม*</th></tr>';
+  document.getElementById('tb').innerHTML=T.map(t=>`<tr><td>${esc(t.p?t.p.ne:'?')} → ${esc(t.e.ne)}</td><td>${t.pt!==null?f(t.pt):'-'}</td><td>${f(t.e.rx)}</td><td>${t.e.lo!=null?f(t.e.lo)+' ~ '+f(t.e.hi):'-'}</td><td>${chip(t.inR?'ok':'cr',t.inR?'ปกติ':'นอกช่วง')}</td><td>${t.e.ref!=null?f(t.e.ref):'-'}</td><td>${t.d!==null?chip(cls(t.d),(t.d>=0?'+':'')+f(t.d)):'-'}</td><td>${t.loss!==null?f(t.loss):'-'}</td><td>${t.lossRef!==null?f(t.lossRef):'-'}</td></tr>`).join('');
+  document.getElementById('notes').textContent='*Loss เดิม คำนวณโดยสมมติว่า Tx ต้นทางเท่ากับค่าปัจจุบัน';
+  const t0=ps[0];
+  let m=`${job?job+' ':''}ตรวจสอบค่า Power เทียบค่าเดิม ${t0.peer?t0.ne+' <-> '+t0.peer.ne:t0.ne}\n`;
+  T.forEach(t=>{const e=t.e;m+=`\n${t.p?t.p.ne:'?'} -> ${e.ne} (${e.port})\n`+(t.pt!==null?`- Tx ${f(t.pt)} dBm\n`:'')+`- Rx ปัจจุบัน ${f(e.rx)} dBm`+(e.flag?` (${e.flag})`:'')+(e.lo!=null?` ช่วง ${f(e.lo)} ~ ${f(e.hi)} ${t.inR?'Normal':'นอกช่วง'}`:'')+'\n'+(t.d!==null?`- Rx เดิม ${f(e.ref)} dBm → ${dtxt(t.d)}\n`:'')+(t.loss!==null?`- Loss ${f(t.loss)} dB`+(t.lossRef!==null?` (เดิม ${f(t.lossRef)} dB)`:'')+'\n':'')});
+  m+='\nสรุป: '+(level===0?'ค่า Rx อยู่ในช่วงปกติและไม่เปลี่ยนจากค่าเดิมเกินเกณฑ์':issues.join(', '));
+  if(level===2)m+='\nแนะนำ: ตรวจเส้นใย หัวต่อ และ SFP ฝั่งที่ Rx ลดลง';
+  document.getElementById('msg').value=m;
+  document.getElementById('out').style.display='block';
+}
+document.getElementById('prev').addEventListener('paste',()=>setTimeout(run,50));
+function run(){
+  const rawv=document.getElementById('raw').value.trim().slice(0,100000);const rows=rawv?parse(rawv):[];const prevs=parsePrev(document.getElementById('prev').value.slice(0,100000));if(!rows.length&&prevs.length){runPrevOnly(prevs);return}
+  if(!rows.length||rows.some(r=>[r.out,r.inn,r.lo,r.hi,r.lo2,r.hi2].some(isNaN))){
+    alert("อ่านข้อมูลไม่ได้ กรุณาวางข้อความให้ครบทั้ง 2 แถว");return;
+  }
+  const warnAsym=num("warn",3);
+  const mgMin=num("mg",3);
+  const job=document.getElementById("job").value.trim();
+  let level=0;const notes=[],issues=[];
+  rows.forEach(r=>{
+    r.loss=r.out-r.inn;if([r.out,r.inn,r.lo,r.hi,r.lo2,r.hi2].some(v=>v<-60||v>25)||r.lo>=r.hi||r.lo2>=r.hi2){level=Math.max(level,1);issues.push('ข้อมูลอาจอ่านผิดตำแหน่งคอลัมน์ (ค่าอยู่นอกช่วงที่เป็นไปได้)')}
+    r.txOk=r.out>=r.lo&&r.out<=r.hi;
+    r.rxOk=r.inn>=r.lo2&&r.inn<=r.hi2;
+    r.mg=r.inn-r.lo2;
+    const a=ne(r.src),b=ne(r.sink);const pv=prevs.find(x=>x.ne===b&&x.ref!=null);if(pv){r.ref=pv.ref;r.d=r.inn-pv.ref;const c=cls(r.d);if(c!=='ok'){level=Math.max(level,c==='cr'?2:1);issues.push(`Rx ที่ ${b} ${dtxt(r.d)} จากค่าเดิม (${f(pv.ref)} → ${f(r.inn)})`)}}
+    if(!r.txOk){level=2;issues.push(`Tx ที่ ${a} อยู่นอกช่วง`)}
+    if(!r.rxOk){level=2;issues.push(`Rx ที่ ${b} อยู่นอกช่วง`)}
+    else if(r.mg<mgMin){level=Math.max(level,1);issues.push(`Rx ที่ ${b} margin เหลือ ${f(r.mg)} dB`)}
+    if(r.sheet!==null&&Math.abs(r.sheet-r.loss)>0.05){level=Math.max(level,1);issues.push(`ข้อมูลอาจอ่านผิดตำแหน่ง: Loss ที่คำนวณ (${f(r.loss)}) ต่างจากค่าในตาราง (${f(r.sheet)})`)}
+  });
+  let asym=null;
+  if(rows.length>=2){
+    asym=Math.abs(rows[0].loss-rows[1].loss);
+    if(asym>warnAsym){level=Math.max(level,1);issues.push(`Loss สองทิศต่างกัน ${f(asym)} dB`)}
+  }
+  const lv=[["ok","ปกติ"],["wn","เฝ้าระวัง"],["cr","ผิดปกติ"]][level];
+  const s=document.getElementById("sum");
+  s.className="sum "+lv[0];
+  s.textContent=`ผลตรวจ: ${lv[1]}`+(issues.length?" — "+issues.join(", "):" — ค่า Power ทุกทิศอยู่ในช่วงปกติ");
+  document.getElementById('th').innerHTML=HEAD0;document.getElementById("tb").innerHTML=rows.map(r=>`<tr>
+    <td>${esc(ne(r.src))} → ${esc(ne(r.sink))}</td><td>${f(r.out)}</td><td>${f(r.lo)} ~ ${f(r.hi)}</td><td>${chip(r.txOk?"ok":"cr",r.txOk?"ปกติ":"นอกช่วง")}</td>
+    <td>${f(r.inn)}</td><td>${f(r.lo2)} ~ ${f(r.hi2)}</td><td>${chip(r.rxOk?"ok":"cr",r.rxOk?"ปกติ":"นอกช่วง")}</td>
+    <td>${chip(r.mg<mgMin?"wn":"ok",f(r.mg)+" dB")}</td><td><b>${f(r.loss)}</b></td><td>${r.ref!=null?f(r.ref)+' '+chip(cls(r.d),(r.d>=0?'+':'')+f(r.d)):'-'}</td></tr>`).join("");
+  document.getElementById("notes").textContent=[asym!==null?`ความต่าง Loss สองทิศ: ${f(asym)} dB`:"",...notes].filter(Boolean).join(" | ");
+
+  const A=ne(rows[0].src),B=ne(rows[0].sink);
+  let m=`${job?job+" ":""}ตรวจสอบค่า Power Transport ${A} <-> ${B}\n`;
+  rows.forEach(r=>{
+    m+=`\n${ne(r.src)} -> ${ne(r.sink)}\n`+
+    `- Tx ${f(r.out)} dBm (ช่วง ${f(r.lo)} ~ ${f(r.hi)}) ${r.txOk?"Normal":"นอกช่วง"}\n`+
+    `- Rx ${f(r.inn)} dBm (ช่วง ${f(r.lo2)} ~ ${f(r.hi2)}) ${r.rxOk?"Normal":"นอกช่วง"}, margin ${f(r.mg)} dB\n`+
+    `- Loss ${f(r.loss)} dB\n`+(r.ref!=null?`- Rx เดิม ${f(r.ref)} dBm → ปัจจุบัน ${f(r.inn)} dBm (${dtxt(r.d)})\n`:'');
+  });
+  m+=`\nสรุป: `+(level===0?"ค่า Tx/Rx อยู่ในช่วงปกติทั้งสองทิศทาง ไม่พบความผิดปกติ":issues.join(", "));
+  if(asym!==null&&level<2&&asym<=warnAsym)m+=` (Loss ต่างกัน ${f(asym)} dB)`;
+  document.getElementById("msg").value=m;
+  document.getElementById("out").style.display="block";
+}
+
+document.getElementById("go").onclick=run;
+document.getElementById("raw").addEventListener("paste",()=>setTimeout(run,50));
+document.getElementById("cp").onclick=async()=>{
+  const v=document.getElementById("msg").value,s=document.getElementById("cps");
+  try{await navigator.clipboard.writeText(v);s.textContent="คัดลอกแล้ว"}
+  catch(e){document.getElementById("msg").select();s.textContent="เลือกข้อความแล้ว กด Ctrl+C"}
+};
+</script>
+</body>
+</html>
